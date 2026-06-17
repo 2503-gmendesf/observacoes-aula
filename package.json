@@ -1,0 +1,20 @@
+{
+  "name": "observacoes-aula",
+  "version": "1.0.0",
+  "description": "Sistema de Observação de Aula — Colégio Santa Maria Minas",
+  "scripts": {
+    "dev": "vercel dev",
+    "setup-db": "node setup-db.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "cors": "^2.8.5",
+    "pdfkit": "^0.14.0"
+  },
+  "devDependencies": {
+    "vercel": "^39.0.0"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}

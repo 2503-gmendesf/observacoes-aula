@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Observação de Aula — Colégio Santa Maria Minas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { navy: { DEFAULT: '#0F172A', light: '#1E293B', medium: '#1e3a5f' } }, fontFamily: { sans: ['Inter','sans-serif'] } } }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box}body{font-family:'Inter',sans-serif;background:#F8FAFC}
+    .step-active{background:#2563EB;color:#fff}.step-done{background:#0F172A;color:#fff}.step-inactive{background:#E2E8F0;color:#94A3B8}
+    .radio-option{cursor:pointer;user-select:none}.radio-option input[type=radio]{display:none}
+    .radio-option .pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 14px;border-radius:9999px;border:2px solid #CBD5E1;font-size:13px;font-weight:500;color:#64748B;transition:all .15s;white-space:nowrap}
+    .radio-option input[type=radio]:checked+.pill{border-color:#2563EB;background:#EFF6FF;color:#1D4ED8;font-weight:600}
+    .radio-option:hover .pill{border-color:#93C5FD;color:#2563EB}
+    .fade-in{animation:fadeIn .2s ease}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center}
+    .toast{position:fixed;bottom:24px;right:24px;z-index:100;padding:14px 20px;border-radius:10px;color:#fff;font-size:14px;font-weight:500;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:slideUp .25s ease}
+    @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+    .table-row:hover{background:#F1F5F9}
+    ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#F1F5F9}::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px}
+  </style>
+</head>
+<body class="min-h-screen">
+<div id="app"></div>
+<script>
+// ═══════════════════════════════════════════════════════
+// DADOS ESTÁTICOS
+// ═══════════════════════════════════════════════════════
+const CRITERIOS = [
+  { campo:'criterio_1_atmosfera',    titulo:'ATMOSFERA DE SALA DE AULA',        texto:'A atmosfera é acolhedora e convida os participantes a se sentirem parte do grupo?' },
+  { campo:'criterio_2_objetivos',    titulo:'OBJETIVOS DE APRENDIZAGEM',         texto:'Os objetivos de aprendizagem estão claros para o professor e para os alunos?' },
+  { campo:'criterio_3_interacao',    titulo:'INTERAÇÃO NA SALA DE AULA',         texto:'A interação é feita de maneira produtiva e respeitosa? Diversos padrões de interação vêm sendo incentivados durante a aula?' },
+  { campo:'criterio_4_recursos',     titulo:'USO DE RECURSOS',                   texto:'O uso dos recursos didáticos (tecnológicos ou não) é adequado aos objetivos de aprendizagem da aula?' },
+  { campo:'criterio_5_competencias', titulo:'DESENVOLVIMENTO DE COMPETÊNCIAS',   texto:'O desenvolvimento de competências (autonomia, colaboração, criatividade, comunicação, pensamento crítico, letramento digital etc.) é contemplado nas atividades em sala de aula?' },
+  { campo:'criterio_6_mediador',     titulo:'PAPEL DO PROFESSOR MEDIADOR',       texto:'O professor exerce o papel de mediador do conhecimento durante a aula? Ele emprega metodologias ativas?' },
+  { campo:'criterio_7_gestao',       titulo:'GESTÃO DE SALA DE AULA',            texto:'O professor adota rotinas claras que apoiam a aprendizagem, gerenciando o tempo e o espaço para assegurar uma boa organização da aula? O professor medeia as relações com base em valores éticos?' },
+  { campo:'criterio_8_conexoes',     titulo:'CONEXÕES COM OS ESTUDANTES',        texto:'Os conteúdos da aula são conectados aos conhecimentos prévios dos alunos e a seus contextos de vida?' },
+  { campo:'criterio_9_estrategias',  titulo:'ESTRATÉGIAS DE ENSINO',             texto:'O professor utiliza estratégias de ensino para atender às necessidades dos alunos?' },
+  { campo:'criterio_10_avaliacao',   titulo:'AVALIAÇÃO DE APRENDIZAGEM',         texto:'O professor utiliza estratégias para avaliar a aprendizagem dos alunos em diferentes momentos durante a aula?' },
+];
+const ESCALA = {1:'Nada Evidente',2:'Pouco Evidente',3:'Evidente',4:'Muito Evidente'};
+const UNIDADES = ['Unidade Betim','Unidade Cidade Nova','Unidade Contagem','Unidade Coração Eucarístico','Unidade Floresta','Unidade Medianeira','Unidade Nova Lima','Unidade Nova Suíça','Unidade Pampulha','Unidade São Gabriel','Unidade Providência — Conjunto Taquaril','Unidade Providência — Jardim Vitória'];
+const DEMO_USERS = [
+  {id:1,nome:'Marcos Oliveira',  email:'marcos@santamariaminas.edu.br',  senha:'demo123',cargo:'Coordenador Pedagógico',unidade:'Unidade Betim',   initials:'MO'},
+  {id:2,nome:'Fernanda Lima',    email:'fernanda@santamariaminas.edu.br',senha:'demo123',cargo:'Diretora de Unidade',  unidade:'Unidade Pampulha', initials:'FL'},
+  {id:3,nome:'Roberto Carvalho', email:'roberto@santamariaminas.edu.br', senha:'demo123',cargo:'Diretor Geral da Rede',unidade:'Todas as Unidades',initials:'RC'},
+];
+const SEEDS = [
+  {unidade:'Unidade Betim',   data_observacao:'2026-06-02',horario:'08h00 às 08h50',professor:'Ana Paula Ferreira',   turma:'9º Ano B',   observador:'Marcos Oliveira', criterio_1_atmosfera:4,criterio_2_objetivos:3,criterio_3_interacao:4,criterio_4_recursos:3,criterio_5_competencias:3,criterio_6_mediador:4,criterio_7_gestao:3,criterio_8_conexoes:4,criterio_9_estrategias:3,criterio_10_avaliacao:3,feedback:'Aula muito bem conduzida. Sugestão: explorar mais atividades colaborativas.'},
+  {unidade:'Unidade Pampulha',data_observacao:'2026-06-05',horario:'10h00 às 10h50',professor:'Carlos Eduardo Souza', turma:'7º Ano A',   observador:'Fernanda Lima',   criterio_1_atmosfera:3,criterio_2_objetivos:2,criterio_3_interacao:3,criterio_4_recursos:4,criterio_5_competencias:2,criterio_6_mediador:3,criterio_7_gestao:3,criterio_8_conexoes:2,criterio_9_estrategias:3,criterio_10_avaliacao:2,feedback:'Bom uso de recursos tecnológicos. Objetivos não comunicados explicitamente aos alunos.'},
+  {unidade:'Unidade Floresta',data_observacao:'2026-06-08',horario:'13h30 às 14h20',professor:'Mariana Costa Alves', turma:'6º Ano C',   observador:'Roberto Carvalho',criterio_1_atmosfera:4,criterio_2_objetivos:4,criterio_3_interacao:4,criterio_4_recursos:3,criterio_5_competencias:4,criterio_6_mediador:4,criterio_7_gestao:4,criterio_8_conexoes:3,criterio_9_estrategias:4,criterio_10_avaliacao:4,feedback:'Observação exemplar. Destaque para as estratégias de avaliação formativa ao longo de toda a aula.'},
+  {unidade:'Unidade Nova Lima',data_observacao:'2026-06-10',horario:'07h30 às 08h20',professor:'Paulo H. Martins',    turma:'8º Ano D',   observador:'Marcos Oliveira', criterio_1_atmosfera:2,criterio_2_objetivos:3,criterio_3_interacao:2,criterio_4_recursos:2,criterio_5_competencias:2,criterio_6_mediador:2,criterio_7_gestao:3,criterio_8_conexoes:2,criterio_9_estrategias:2,criterio_10_avaliacao:2,feedback:'Metodologia predominantemente expositiva. Recomenda-se formação em metodologias ativas.'},
+  {unidade:'Unidade Contagem',data_observacao:'2026-06-12',horario:'09h00 às 09h50',professor:'Juliana Ramos Pereira',turma:'1º Ano EM A',observador:'Fernanda Lima',   criterio_1_atmosfera:3,criterio_2_objetivos:4,criterio_3_interacao:3,criterio_4_recursos:4,criterio_5_competencias:3,criterio_6_mediador:3,criterio_7_gestao:4,criterio_8_conexoes:3,criterio_9_estrategias:4,criterio_10_avaliacao:3,feedback:'Boa organização e clareza nos objetivos. Destaque para estratégias diversificadas de ensino.'},
+];
+
+// ═══════════════════════════════════════════════════════
+// BANCO DE DADOS (localStorage)
+// ═══════════════════════════════════════════════════════
+const DB_KEY = 'obs_smm_data';
+
+function dbLoad() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY)) || { nextId:6, obs:[] }; }
+  catch { return { nextId:6, obs:[] }; }
+}
+function dbSave(data) { localStorage.setItem(DB_KEY, JSON.stringify(data)); }
+
+function dbSeed() {
+  const data = dbLoad();
+  if (data.obs.length > 0) return;
+  const now = new Date().toISOString();
+  SEEDS.forEach((s, i) => {
+    data.obs.push({ id: i+1, ...s, criado_em: now, atualizado_em: now });
+  });
+  data.nextId = SEEDS.length + 1;
+  dbSave(data);
+}
+
+function dbMedia(o) {
+  const soma = CRITERIOS.reduce((a, c) => a + (Number(o[c.campo]) || 0), 0);
+  return Math.round((soma / CRITERIOS.length) * 100) / 100;
+}
+
+const DB = {
+  getAll(filtros = {}) {
+    let rows = dbLoad().obs;
+    if (filtros.unidade)     rows = rows.filter(r => r.unidade === filtros.unidade);
+    if (filtros.professor)   rows = rows.filter(r => r.professor.toLowerCase().includes(filtros.professor.toLowerCase()));
+    if (filtros.turma)       rows = rows.filter(r => r.turma.toLowerCase().includes(filtros.turma.toLowerCase()));
+    if (filtros.data_inicio) rows = rows.filter(r => r.data_observacao >= filtros.data_inicio);
+    if (filtros.data_fim)    rows = rows.filter(r => r.data_observacao <= filtros.data_fim);
+    rows.sort((a, b) => b.data_observacao.localeCompare(a.data_observacao) || b.id - a.id);
+    return rows.map(r => ({ ...r, media: dbMedia(r) }));
+  },
+  getById(id) {
+    const o = dbLoad().obs.find(r => r.id === Number(id));
+    return o ? { ...o, media: dbMedia(o) } : null;
+  },
+  create(obs) {
+    const data = dbLoad();
+    const now = new Date().toISOString();
+    const record = { id: data.nextId++, ...obs, criado_em: now, atualizado_em: now };
+    data.obs.push(record);
+    dbSave(data);
+    return { ...record, media: dbMedia(record) };
+  },
+  update(id, obs) {
+    const data = dbLoad();
+    const idx = data.obs.findIndex(r => r.id === Number(id));
+    if (idx === -1) return null;
+    data.obs[idx] = { ...data.obs[idx], ...obs, id: Number(id), atualizado_em: new Date().toISOString() };
+    dbSave(data);
+    return { ...data.obs[idx], media: dbMedia(data.obs[idx]) };
+  },
+  delete(id) {
+    const data = dbLoad();
+    data.obs = data.obs.filter(r => r.id !== Number(id));
+    dbSave(data);
+  },
+  stats() {
+    const obs = dbLoad().obs;
+    const total = obs.length;
+    const professores = new Set(obs.map(o => o.professor)).size;
+    const unidadeCount = {};
+    obs.forEach(o => { unidadeCount[o.unidade] = (unidadeCount[o.unidade] || 0) + 1; });
+    const unidadeMaisAtiva = Object.entries(unidadeCount).sort((a,b) => b[1]-a[1])[0];
+    const mediasGlobais = CRITERIOS.map(c => {
+      const vals = obs.map(o => Number(o[c.campo])).filter(Boolean);
+      const avg = vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : 0;
+      return { campo: c.campo, titulo: c.titulo, media: Math.round(avg * 100) / 100 };
+    });
+    const porCriterio = {};
+    CRITERIOS.forEach(c => {
+      porCriterio[c.campo] = {1:0, 2:0, 3:0, 4:0};
+      obs.forEach(o => { const v = Number(o[c.campo]); if (v >= 1 && v <= 4) porCriterio[c.campo][v]++; });
+    });
+    return { total, professores, unidadeMaisAtiva: unidadeMaisAtiva ? { unidade: unidadeMaisAtiva[0], count: unidadeMaisAtiva[1] } : null, mediasGlobais, porCriterio };
+  }
+};
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const state = { user:null, view:'login', filtros:{unidade:'',professor:'',turma:'',data_inicio:'',data_fim:''}, selectedObs:null, formStep:1, formData:{}, charts:{} };
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+function el(tag, cls, html='') { const e=document.createElement(tag); if(cls) e.className=cls; if(html) e.innerHTML=html; return e; }
+function fmt(d) { if(!d) return ''; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
+function today() { return new Date().toISOString().slice(0,10); }
+function escalaLabel(n) { return ESCALA[n] || ''; }
+function mediaColor(m) { if(m>=3.5) return 'text-emerald-600'; if(m>=2.5) return 'text-blue-600'; if(m>=1.5) return 'text-amber-500'; return 'text-red-500'; }
+function mediaLabel(m) { if(m>=3.5) return 'Muito Evidente'; if(m>=2.5) return 'Evidente'; if(m>=1.5) return 'Pouco Evidente'; return 'Nada Evidente'; }
+function toast(msg, type='success') {
+  const t=document.createElement('div');
+  t.className=`toast ${type==='success'?'bg-emerald-600':type==='error'?'bg-red-600':'bg-blue-600'}`;
+  t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),3500);
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER DISPATCHER
+// ═══════════════════════════════════════════════════════
+function render() {
+  const app=$('app');
+  if(state.view==='login'){ renderLogin(); return; }
+  app.innerHTML='';
+  app.appendChild(renderHeader());
+  const main=el('div','max-w-7xl mx-auto px-4 py-6');
+  if(state.view==='dashboard') main.appendChild(renderDashboard());
+  else if(state.view==='form')  main.appendChild(renderForm());
+  else if(state.view==='detail') main.appendChild(renderDetail());
+  else if(state.view==='edit')   main.appendChild(renderEdit());
+  app.appendChild(main);
+}
+
+// ═══════════════════════════════════════════════════════
+// HEADER
+// ═══════════════════════════════════════════════════════
+function renderHeader() {
+  const h=el('header','bg-[#0F172A] text-white shadow-lg sticky top-0 z-40');
+  h.innerHTML=`
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-sm">SM</div>
+        <div>
+          <div class="text-xs text-slate-400 leading-tight">Colégio Santa Maria Minas</div>
+          <div class="text-sm font-semibold leading-tight">Sistema de Observação de Aula</div>
+        </div>
+      </div>
+      <nav class="flex items-center gap-2">
+        <button onclick="navigate('dashboard')" class="px-3 py-1.5 text-sm rounded-md ${state.view==='dashboard'?'bg-blue-600 text-white':'text-slate-300 hover:text-white hover:bg-slate-700'} transition-colors">Dashboard</button>
+        <button onclick="navigate('form')" class="px-3 py-1.5 text-sm rounded-md ${state.view==='form'?'bg-blue-600 text-white':'text-slate-300 hover:text-white hover:bg-slate-700'} transition-colors">Nova Observação</button>
+        <div class="w-px h-5 bg-slate-600 mx-1"></div>
+        <div class="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center text-xs font-bold">${state.user?.initials||'?'}</div>
+        <span class="text-sm text-slate-300 hidden sm:block">${state.user?.nome||''}</span>
+        <button onclick="logout()" class="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 rounded-md transition-colors ml-1">Sair</button>
+      </nav>
+    </div>`;
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════════
+function renderLogin() {
+  $('app').innerHTML=`
+    <div class="min-h-screen bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0F172A] flex items-center justify-center p-4">
+      <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+          <div class="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center font-bold text-2xl text-white mx-auto mb-4">SM</div>
+          <div class="text-slate-400 text-sm uppercase tracking-widest mb-1">Colégio Santa Maria Minas</div>
+          <h1 class="text-white text-2xl font-bold">Sistema de Observação de Aula</h1>
+        </div>
+        <div class="bg-white rounded-2xl shadow-2xl p-8">
+          <form id="login-form" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
+              <input id="login-email" type="email" required class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="seu@email.com" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+              <input id="login-senha" type="password" required class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="••••••••" />
+            </div>
+            <div id="login-error" class="text-red-600 text-sm hidden"></div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition-colors">Entrar</button>
+          </form>
+          <div class="mt-6">
+            <div class="text-xs text-slate-400 text-center mb-3 uppercase tracking-wider">Usuários de demonstração</div>
+            <div class="space-y-2">
+              ${DEMO_USERS.map(u=>`
+                <button onclick="autoLogin('${u.email}')" class="w-full flex items-center gap-3 p-3 border border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all text-left">
+                  <div class="w-10 h-10 rounded-full bg-[#0F172A] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">${u.initials}</div>
+                  <div>
+                    <div class="font-semibold text-slate-800 text-sm">${u.nome}</div>
+                    <div class="text-xs text-slate-500">${u.cargo} · ${u.unidade}</div>
+                  </div>
+                </button>`).join('')}
+            </div>
+          </div>
+        </div>
+        <p class="text-center text-slate-500 text-xs mt-6">Senha para todos os usuários demo: <strong class="text-slate-300">demo123</strong></p>
+      </div>
+    </div>`;
+
+  $('login-form').onsubmit = e => {
+    e.preventDefault();
+    const email=$('login-email').value, senha=$('login-senha').value;
+    const u=DEMO_USERS.find(u=>u.email===email&&u.senha===senha);
+    if(!u){ const err=$('login-error'); err.textContent='Credenciais inválidas.'; err.classList.remove('hidden'); return; }
+    state.user=u; navigate('dashboard');
+  };
+}
+
+function autoLogin(email) {
+  $('login-email').value=email; $('login-senha').value='demo123';
+  $('login-form').dispatchEvent(new Event('submit'));
+}
+
+// ═══════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════
+function renderDashboard() {
+  const wrap=el('div','fade-in');
+  const s=DB.stats();
+  const obs=DB.getAll(state.filtros);
+
+  wrap.innerHTML=`
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-slate-800">Dashboard de Observações</h2>
+      <p class="text-slate-500 text-sm mt-1">Acompanhe e gerencie as observações pedagógicas registradas na rede.</p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <div><div class="text-2xl font-bold text-slate-800">${s.total}</div><div class="text-sm text-slate-500">Observações registradas</div></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+          <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        </div>
+        <div><div class="text-2xl font-bold text-slate-800">${s.professores}</div><div class="text-sm text-slate-500">Professores observados</div></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
+          <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        </div>
+        <div>
+          <div class="text-base font-bold text-slate-800 leading-tight">${s.unidadeMaisAtiva?.unidade||'—'}</div>
+          <div class="text-sm text-slate-500">Unidade mais ativa${s.unidadeMaisAtiva?` (${s.unidadeMaisAtiva.count})`:''}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 mb-6 shadow-sm">
+      <div class="flex flex-wrap gap-3 items-end">
+        <div class="flex-1 min-w-[140px]">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Unidade</label>
+          <select id="f-unidade" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todas</option>
+            ${UNIDADES.map(u=>`<option value="${u}" ${state.filtros.unidade===u?'selected':''}>${u}</option>`).join('')}
+          </select>
+        </div>
+        <div class="flex-1 min-w-[140px]">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Professor(a)</label>
+          <input id="f-professor" type="text" value="${state.filtros.professor}" placeholder="Buscar..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="flex-1 min-w-[120px]">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Turma</label>
+          <input id="f-turma" type="text" value="${state.filtros.turma}" placeholder="Buscar..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="flex-1 min-w-[130px]">
+          <label class="block text-xs font-medium text-slate-600 mb-1">De</label>
+          <input id="f-inicio" type="date" value="${state.filtros.data_inicio}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="flex-1 min-w-[130px]">
+          <label class="block text-xs font-medium text-slate-600 mb-1">Até</label>
+          <input id="f-fim" type="date" value="${state.filtros.data_fim}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div class="flex gap-2">
+          <button onclick="aplicarFiltros()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">Filtrar</button>
+          <button onclick="limparFiltros()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-medium rounded-lg transition-colors">Limpar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <h3 class="text-sm font-semibold text-slate-700 mb-4">Médias por Critério</h3>
+        <canvas id="chart-criterios" height="280"></canvas>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <h3 class="text-sm font-semibold text-slate-700 mb-4">Distribuição de Avaliações</h3>
+        <canvas id="chart-escala" height="280"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-semibold text-slate-700">Histórico de Observações</h3>
+        <button onclick="navigate('form')" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nova Observação
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+            <tr>
+              <th class="text-left px-4 py-3">Data</th>
+              <th class="text-left px-4 py-3">Unidade</th>
+              <th class="text-left px-4 py-3">Professor(a)</th>
+              <th class="text-left px-4 py-3">Turma</th>
+              <th class="text-left px-4 py-3">Observador(a)</th>
+              <th class="text-center px-4 py-3">Média</th>
+              <th class="text-center px-4 py-3">Ações</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${obs.length===0?`<tr><td colspan="7" class="text-center py-12 text-slate-400">Nenhuma observação encontrada.</td></tr>`:
+              obs.map(o=>`
+              <tr class="table-row cursor-pointer" onclick="viewDetail(${o.id})">
+                <td class="px-4 py-3 text-slate-700">${fmt(o.data_observacao)}</td>
+                <td class="px-4 py-3 text-slate-600 text-xs max-w-[160px] truncate">${o.unidade}</td>
+                <td class="px-4 py-3 font-medium text-slate-800">${o.professor}</td>
+                <td class="px-4 py-3 text-slate-600">${o.turma}</td>
+                <td class="px-4 py-3 text-slate-600">${o.observador}</td>
+                <td class="px-4 py-3 text-center"><span class="font-bold ${mediaColor(o.media)}">${o.media.toFixed(2)}</span><span class="text-xs text-slate-400 ml-1">/4</span></td>
+                <td class="px-4 py-3"><div class="flex items-center justify-center gap-2" onclick="event.stopPropagation()">
+                  <button onclick="viewDetail(${o.id})" title="Ver" class="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </button>
+                  <button onclick="exportPDF(${o.id})" title="PDF" class="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  </button>
+                  <button onclick="confirmDelete(${o.id})" title="Excluir" class="p-1.5 hover:bg-red-50 rounded-lg text-red-400 hover:text-red-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // Charts
+  setTimeout(() => {
+    Object.values(state.charts).forEach(c=>c.destroy()); state.charts={};
+    const ctx1=$('chart-criterios');
+    if(ctx1&&s.mediasGlobais) {
+      state.charts.criterios=new Chart(ctx1,{type:'bar',data:{labels:s.mediasGlobais.map(m=>m.titulo.split(' ').slice(0,3).join(' ')+'…'),datasets:[{data:s.mediasGlobais.map(m=>m.media),backgroundColor:s.mediasGlobais.map(m=>m.media>=3.5?'#059669':m.media>=2.5?'#2563EB':m.media>=1.5?'#D97706':'#DC2626'),borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:0,max:4,grid:{color:'#F1F5F9'}},y:{ticks:{font:{size:10}},grid:{display:false}}}}});
+    }
+    const ctx2=$('chart-escala');
+    if(ctx2&&s.porCriterio) {
+      const totals={1:0,2:0,3:0,4:0};
+      Object.values(s.porCriterio).forEach(c=>{ for(const k of[1,2,3,4]) totals[k]+=c[k]||0; });
+      state.charts.escala=new Chart(ctx2,{type:'doughnut',data:{labels:['Nada Evidente','Pouco Evidente','Evidente','Muito Evidente'],datasets:[{data:[totals[1],totals[2],totals[3],totals[4]],backgroundColor:['#DC2626','#D97706','#2563EB','#059669'],borderWidth:2,borderColor:'#fff'}]},options:{plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:12}}}}});
+    }
+  }, 50);
+  return wrap;
+}
+
+function aplicarFiltros() {
+  state.filtros={unidade:$('f-unidade')?.value||'',professor:$('f-professor')?.value||'',turma:$('f-turma')?.value||'',data_inicio:$('f-inicio')?.value||'',data_fim:$('f-fim')?.value||''};
+  render();
+}
+function limparFiltros() { state.filtros={unidade:'',professor:'',turma:'',data_inicio:'',data_fim:''}; render(); }
+
+// ═══════════════════════════════════════════════════════
+// FORMULÁRIO (STEPPER 3 ETAPAS)
+// ═══════════════════════════════════════════════════════
+function renderForm(editData=null) {
+  const isEdit=!!editData;
+  const wrap=el('div','fade-in max-w-3xl mx-auto');
+  wrap.innerHTML=`
+    <div class="mb-6 flex items-center gap-3">
+      <button onclick="navigate('dashboard')" class="text-slate-400 hover:text-slate-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <div>
+        <h2 class="text-xl font-bold text-slate-800">${isEdit?'Editar Observação':'Nova Observação de Aula'}</h2>
+        <p class="text-slate-500 text-sm">Preencha os dados da observação pedagógica em 3 etapas.</p>
+      </div>
+    </div>
+    <div class="flex items-center mb-8">
+      ${[['1','Dados da Aula'],['2','Critérios'],['3','Revisão']].map(([n,label],i)=>`
+        <div class="flex items-center ${i<2?'flex-1':''}">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${state.formStep>i+1?'step-done':state.formStep===i+1?'step-active':'step-inactive'}">
+              ${state.formStep>i+1?'✓':n}
+            </div>
+            <span class="text-sm font-medium ${state.formStep===i+1?'text-blue-600':'text-slate-400'} hidden sm:block">${label}</span>
+          </div>
+          ${i<2?'<div class="flex-1 h-px bg-slate-200 mx-3"></div>':''}
+        </div>`).join('')}
+    </div>
+    <div id="form-step-content"></div>`;
+  setTimeout(()=>renderFormStep(isEdit?editData:null),0);
+  return wrap;
+}
+
+function renderFormStep(editData=null) {
+  const container=$('form-step-content');
+  if(!container) return;
+  const fd=state.formData;
+
+  if(state.formStep===1) {
+    container.innerHTML=`
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4 fade-in">
+        <h3 class="font-semibold text-slate-700 text-base">Dados da Aula</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1">Unidade <span class="text-red-500">*</span></label>
+            <select id="f-unidade-form" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Selecione a unidade…</option>
+              ${UNIDADES.map(u=>`<option value="${u}" ${fd.unidade===u?'selected':''}>${u}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Data <span class="text-red-500">*</span></label>
+            <input id="f-data" type="date" value="${fd.data_observacao||today()}" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Horário <span class="text-red-500">*</span></label>
+            <input id="f-horario" type="text" placeholder="ex: 08h00 às 08h50" value="${fd.horario||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Professor(a) <span class="text-red-500">*</span></label>
+            <input id="f-professor-form" type="text" placeholder="Nome completo" value="${fd.professor||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Turma <span class="text-red-500">*</span></label>
+            <input id="f-turma-form" type="text" placeholder="ex: 9º Ano B" value="${fd.turma||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1">Observador(a) <span class="text-red-500">*</span></label>
+            <input id="f-observador" type="text" placeholder="Nome de quem preenche" value="${fd.observador||state.user?.nome||''}" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+        <div id="step1-error" class="text-red-600 text-sm hidden"></div>
+        <div class="flex justify-end pt-2">
+          <button onclick="nextStep()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">Próximo →</button>
+        </div>
+      </div>`;
+  }
+  else if(state.formStep===2) {
+    container.innerHTML=`
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 fade-in">
+        <h3 class="font-semibold text-slate-700 text-base mb-1">Critérios de Avaliação</h3>
+        <p class="text-sm text-slate-500 mb-5">Selecione uma opção para cada critério (todos obrigatórios).</p>
+        <div class="space-y-5" id="criterios-list"></div>
+        <div id="step2-error" class="text-red-600 text-sm hidden mt-3"></div>
+        <div class="flex justify-between pt-4 mt-2 border-t border-slate-100">
+          <button onclick="prevStep()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium rounded-lg transition-colors">← Voltar</button>
+          <button onclick="nextStep()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">Revisar →</button>
+        </div>
+      </div>`;
+    const list=$('criterios-list');
+    CRITERIOS.forEach((c,i)=>{
+      const div=el('div','pb-4 border-b border-slate-100 last:border-0');
+      div.innerHTML=`
+        <div class="flex items-start gap-2 mb-2">
+          <span class="text-xs font-bold text-blue-600 bg-blue-50 rounded px-1.5 py-0.5 mt-0.5">${i+1}</span>
+          <div>
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-wide">${c.titulo}</div>
+            <div class="text-sm text-slate-700 mt-0.5">${c.texto}</div>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-2 ml-6">
+          ${[1,2,3,4].map(v=>`<label class="radio-option"><input type="radio" name="${c.campo}" value="${v}" ${fd[c.campo]==v?'checked':''} /><span class="pill">${escalaLabel(v)}</span></label>`).join('')}
+        </div>`;
+      list.appendChild(div);
+    });
+  }
+  else if(state.formStep===3) {
+    const mediaVal=CRITERIOS.map(c=>parseInt(fd[c.campo])||0).reduce((a,b)=>a+b,0)/CRITERIOS.length;
+    container.innerHTML=`
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 fade-in">
+        <h3 class="font-semibold text-slate-700 text-base mb-4">Revisão e Confirmação</h3>
+        <div class="bg-slate-50 rounded-lg p-4 mb-5 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+          <div><span class="text-slate-400 text-xs block">Unidade</span><span class="font-medium text-slate-700">${fd.unidade}</span></div>
+          <div><span class="text-slate-400 text-xs block">Data</span><span class="font-medium text-slate-700">${fmt(fd.data_observacao)}</span></div>
+          <div><span class="text-slate-400 text-xs block">Horário</span><span class="font-medium text-slate-700">${fd.horario}</span></div>
+          <div><span class="text-slate-400 text-xs block">Professor(a)</span><span class="font-medium text-slate-700">${fd.professor}</span></div>
+          <div><span class="text-slate-400 text-xs block">Turma</span><span class="font-medium text-slate-700">${fd.turma}</span></div>
+          <div><span class="text-slate-400 text-xs block">Observador(a)</span><span class="font-medium text-slate-700">${fd.observador}</span></div>
+        </div>
+        <div class="space-y-1 mb-5">
+          ${CRITERIOS.map((c,i)=>`
+            <div class="flex items-center gap-2 text-sm py-1.5 border-b border-slate-50">
+              <span class="text-xs font-bold text-blue-600 w-5 flex-shrink-0">${i+1}</span>
+              <span class="text-slate-600 flex-1 truncate">${c.titulo}</span>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${fd[c.campo]==4?'bg-emerald-50 text-emerald-700':fd[c.campo]==3?'bg-blue-50 text-blue-700':fd[c.campo]==2?'bg-amber-50 text-amber-700':'bg-red-50 text-red-700'}">${escalaLabel(parseInt(fd[c.campo]))}</span>
+            </div>`).join('')}
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5">
+          <span class="text-sm font-semibold text-blue-800">Média geral: <strong>${mediaVal.toFixed(2)}/4,00</strong></span>
+        </div>
+        <div class="mb-5">
+          <label class="block text-sm font-medium text-slate-700 mb-1">Feedback e observações qualitativas</label>
+          <textarea id="f-feedback" rows="5" placeholder="Pontos fortes, sugestões de melhoria…" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">${fd.feedback||''}</textarea>
+        </div>
+        <div id="step3-error" class="text-red-600 text-sm hidden mb-3"></div>
+        <div class="flex justify-between pt-2 border-t border-slate-100">
+          <button onclick="prevStep()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium rounded-lg transition-colors">← Voltar</button>
+          <button onclick="submitForm(${editData?.id||'null'})" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-colors">
+            ${editData?'Salvar alterações':'✓ Salvar observação'}
+          </button>
+        </div>
+      </div>`;
+  }
+}
+
+function nextStep() {
+  if(state.formStep===1) {
+    const u=$('f-unidade-form')?.value, d=$('f-data')?.value, h=$('f-horario')?.value?.trim(), p=$('f-professor-form')?.value?.trim(), t=$('f-turma-form')?.value?.trim(), o=$('f-observador')?.value?.trim();
+    const err=$('step1-error');
+    if(!u||!d||!h||!p||!t||!o){ err.textContent='Preencha todos os campos obrigatórios.'; err.classList.remove('hidden'); return; }
+    err.classList.add('hidden');
+    Object.assign(state.formData,{unidade:u,data_observacao:d,horario:h,professor:p,turma:t,observador:o});
+    state.formStep=2;
+  } else if(state.formStep===2) {
+    const missing=CRITERIOS.filter(c=>!document.querySelector(`input[name="${c.campo}"]:checked`));
+    if(missing.length){ $('step2-error').textContent=`Responda todos os critérios. Faltam: ${missing.length}.`; $('step2-error').classList.remove('hidden'); return; }
+    CRITERIOS.forEach(c=>{ state.formData[c.campo]=parseInt(document.querySelector(`input[name="${c.campo}"]:checked`).value); });
+    state.formStep=3;
+  }
+  renderFormStep();
+}
+function prevStep() {
+  if(state.formStep===3) state.formData.feedback=$('f-feedback')?.value||'';
+  if(state.formStep>1){ state.formStep--; renderFormStep(); }
+}
+function submitForm(editId=null) {
+  state.formData.feedback=$('f-feedback')?.value||'';
+  try {
+    if(editId) { DB.update(editId,state.formData); toast('Observação atualizada!'); }
+    else { DB.create(state.formData); toast('Observação salva com sucesso!'); }
+    state.formData={}; state.formStep=1; navigate('dashboard');
+  } catch(e){ $('step3-error').textContent=e.message; $('step3-error').classList.remove('hidden'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// DETALHE
+// ═══════════════════════════════════════════════════════
+function renderDetail() {
+  const o=state.selectedObs;
+  if(!o){ navigate('dashboard'); return el('div'); }
+  const wrap=el('div','fade-in max-w-3xl mx-auto');
+  const colors={4:'bg-emerald-50 text-emerald-700 border-emerald-200',3:'bg-blue-50 text-blue-700 border-blue-200',2:'bg-amber-50 text-amber-700 border-amber-200',1:'bg-red-50 text-red-700 border-red-200'};
+  wrap.innerHTML=`
+    <div class="mb-6 flex items-center gap-3">
+      <button onclick="navigate('dashboard')" class="text-slate-400 hover:text-slate-600"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+      <div class="flex-1">
+        <h2 class="text-xl font-bold text-slate-800">Observação #${o.id}</h2>
+        <p class="text-slate-500 text-sm">${o.professor} · ${o.turma} · ${fmt(o.data_observacao)}</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="startEdit(${o.id})" class="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Editar
+        </button>
+        <button onclick="exportPDF(${o.id})" class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Exportar PDF
+        </button>
+      </div>
+    </div>
+    <div class="bg-[#0F172A] rounded-xl p-5 mb-5 text-white">
+      <div class="text-xs text-slate-400 mb-3">COLÉGIO SANTA MARIA MINAS · OBSERVAÇÃO PEDAGÓGICA</div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+        <div><span class="text-slate-400 text-xs block">Unidade</span><span class="font-semibold">${o.unidade}</span></div>
+        <div><span class="text-slate-400 text-xs block">Data</span><span class="font-semibold">${fmt(o.data_observacao)}</span></div>
+        <div><span class="text-slate-400 text-xs block">Horário</span><span class="font-semibold">${o.horario}</span></div>
+        <div><span class="text-slate-400 text-xs block">Professor(a)</span><span class="font-semibold">${o.professor}</span></div>
+        <div><span class="text-slate-400 text-xs block">Turma</span><span class="font-semibold">${o.turma}</span></div>
+        <div><span class="text-slate-400 text-xs block">Observador(a)</span><span class="font-semibold">${o.observador}</span></div>
+      </div>
+      <div class="mt-4 pt-4 border-t border-slate-700 flex items-center gap-3">
+        <span class="text-slate-400 text-sm">Média geral:</span>
+        <span class="text-2xl font-bold">${o.media.toFixed(2)}</span>
+        <span class="text-slate-400 text-sm">/4,00</span>
+        <span class="ml-2 text-xs font-semibold px-2 py-1 rounded-full bg-blue-600">${mediaLabel(o.media)}</span>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-5">
+      <div class="px-5 py-3 bg-slate-50 border-b border-slate-100"><h3 class="font-semibold text-slate-700 text-sm">Critérios de Avaliação</h3></div>
+      <div class="divide-y divide-slate-100">
+        ${CRITERIOS.map((c,i)=>`
+          <div class="px-5 py-3 flex items-start gap-3">
+            <span class="text-xs font-bold text-blue-600 bg-blue-50 rounded px-1.5 py-0.5 mt-0.5 flex-shrink-0">${i+1}</span>
+            <div class="flex-1">
+              <div class="text-xs font-bold text-slate-500 uppercase tracking-wide">${c.titulo}</div>
+              <div class="text-sm text-slate-600 mt-0.5">${c.texto}</div>
+            </div>
+            <span class="flex-shrink-0 text-xs font-semibold border px-2.5 py-1 rounded-full ${colors[o[c.campo]]||''}">${escalaLabel(o[c.campo])}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    ${o.feedback?`<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-5">
+      <h3 class="font-semibold text-slate-700 text-sm mb-3">Feedback</h3>
+      <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">${o.feedback}</p>
+    </div>`:''}`;
+  return wrap;
+}
+
+// ═══════════════════════════════════════════════════════
+// EDIÇÃO
+// ═══════════════════════════════════════════════════════
+function renderEdit() {
+  const o=state.selectedObs; if(!o){ navigate('dashboard'); return el('div'); }
+  if(!state.formData._loaded){ state.formData={...o,_loaded:true}; state.formStep=1; }
+  return renderForm(o);
+}
+function startEdit(id) { state.selectedObs=DB.getById(id); state.formData={...state.selectedObs,_loaded:true}; state.formStep=1; state.view='edit'; render(); }
+
+// ═══════════════════════════════════════════════════════
+// NAVEGAÇÃO & AÇÕES
+// ═══════════════════════════════════════════════════════
+function navigate(view) {
+  if(view==='form'){ state.formStep=1; state.formData={data_observacao:today()}; }
+  state.view=view; render();
+}
+function viewDetail(id) { state.selectedObs=DB.getById(id); state.view='detail'; render(); }
+function logout() { state.user=null; state.view='login'; render(); }
+
+function confirmDelete(id) {
+  const modal=el('div','modal-overlay');
+  modal.innerHTML=`<div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+    <div class="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+    </div>
+    <h3 class="text-lg font-bold text-slate-800 text-center mb-2">Excluir observação?</h3>
+    <p class="text-sm text-slate-500 text-center mb-6">Esta ação não pode ser desfeita.</p>
+    <div class="flex gap-3">
+      <button onclick="this.closest('.modal-overlay').remove()" class="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors">Cancelar</button>
+      <button onclick="deleteObs(${id}); this.closest('.modal-overlay').remove()" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors">Excluir</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+}
+function deleteObs(id) {
+  DB.delete(id); toast('Observação excluída.');
+  if(state.view==='detail') navigate('dashboard'); else render();
+}
+
+// ═══════════════════════════════════════════════════════
+// PDF (jsPDF + autotable — formato tabela do docx)
+// ═══════════════════════════════════════════════════════
+function exportPDF(id) {
+  const o = DB.getById(id);
+  if (!o) { toast('Observação não encontrada.','error'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+  const PW = 210, ML = 12, MR = 12, TW = PW - ML - MR;
+  let y = 12;
+
+  // ── 1. Header navy ────────────────────────────────────
+  doc.setFillColor(15,23,42);
+  doc.rect(ML, y, TW, 18, 'F');
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7); doc.setTextColor(148,163,184);
+  doc.text('COLÉGIO SANTA MARIA MINAS', ML+3, y+5);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(12); doc.setTextColor(255,255,255);
+  doc.text('OBSERVAÇÃO DE AULAS', ML+3, y+12);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7); doc.setTextColor(147,197,253);
+  doc.text(o.unidade, PW-MR-3, y+14, {align:'right'});
+  y += 21;
+
+  // ── 2. Identificação (3 células) ─────────────────────
+  const dataFmt = o.data_observacao ? o.data_observacao.split('-').reverse().join('/') : '';
+  const idH = 11;
+
+  // bordas pretas
+  doc.setDrawColor(0,0,0); doc.setLineWidth(0.2);
+
+  // Professor (45%)
+  const w1 = TW*0.45, w2 = TW*0.30, w3 = TW - w1 - w2;
+  doc.setFillColor(255,255,255); doc.rect(ML,      y, w1, idH,'FD');
+  doc.setFillColor(255,255,255); doc.rect(ML+w1,   y, w2, idH,'FD');
+  doc.setFillColor(255,255,255); doc.rect(ML+w1+w2,y, w3, idH,'FD');
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(6); doc.setTextColor(107,114,128);
+  doc.text('PROFESSOR(A):', ML+2, y+3.5);
+  doc.text('HORÁRIO / DATA:', ML+w1+2, y+3.5);
+  doc.text('TURMA:', ML+w1+w2+2, y+3.5);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(17,17,17);
+  doc.text(o.professor||'', ML+2, y+8.5, {maxWidth:w1-4});
+  doc.text(`${o.horario||''}  |  ${dataFmt}`, ML+w1+2, y+8.5, {maxWidth:w2-4});
+  doc.text(o.turma||'', ML+w1+w2+2, y+8.5, {maxWidth:w3-4});
+  y += idH;
+
+  // Observador (linha completa)
+  doc.setFillColor(255,255,255); doc.rect(ML, y, TW, idH,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(6); doc.setTextColor(107,114,128);
+  doc.text('OBSERVADOR(A):', ML+2, y+3.5);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(17,17,17);
+  doc.text(o.observador||'', ML+34, y+8.5, {maxWidth:TW-36});
+  y += idH;
+
+  // ── 3. Tabela de critérios ────────────────────────────
+  const escalaLabels = ['Nada\nEvidente','Pouco\nEvidente','Evidente','Muito\nEvidente'];
+  const colCrit = TW * 0.50;
+  const colE    = (TW * 0.50) / 4;
+
+  // Cabeçalho da tabela
+  const thH = 10;
+  doc.setFillColor(30,58,95); doc.rect(ML, y, colCrit, thH,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(255,255,255);
+  doc.text('CRITÉRIO', ML + colCrit/2, y+6.5, {align:'center'});
+
+  escalaLabels.forEach((lbl,i)=>{
+    const cx = ML + colCrit + i*colE;
+    doc.setFillColor(30,58,95); doc.rect(cx, y, colE, thH,'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(5.5); doc.setTextColor(255,255,255);
+    const lines = lbl.split('\n');
+    if(lines.length===2){ doc.text(lines[0], cx+colE/2, y+4, {align:'center'}); doc.text(lines[1], cx+colE/2, y+7.5, {align:'center'}); }
+    else { doc.text(lbl, cx+colE/2, y+6, {align:'center'}); }
+  });
+  y += thH;
+
+  // Linhas de critérios
+  CRITERIOS.forEach((c,idx)=>{
+    // Medir altura necessária para o texto
+    doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    const titleLines = doc.splitTextToSize(c.titulo, colCrit-6);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7);
+    const textoLines = doc.splitTextToSize(c.texto, colCrit-6);
+    const rowH = Math.max(((titleLines.length + textoLines.length) * 3.5) + 5, 14);
+
+    // Quebra de página
+    if(y + rowH > 280){ doc.addPage(); y = 12; }
+
+    // Célula critério
+    doc.setFillColor(255,255,255); doc.rect(ML, y, colCrit, rowH,'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(30,58,95);
+    doc.text(titleLines, ML+3, y+4);
+    const titleH2 = titleLines.length * 3.5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(55,65,81);
+    doc.text(textoLines, ML+3, y+4+titleH2+1);
+
+    // 4 células de escala
+    const valor = Number(o[c.campo]);
+    escalaLabels.forEach((_,i)=>{
+      const cx = ML + colCrit + i*colE;
+      doc.setFillColor(255,255,255); doc.rect(cx, y, colE, rowH,'FD');
+      if(valor === i+1){
+        doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(30,58,95);
+        doc.text('X', cx + colE/2, y + rowH/2 + 3, {align:'center'});
+      }
+    });
+    y += rowH;
+  });
+
+  // ── 4. Média geral ────────────────────────────────────
+  if(y+9>280){ doc.addPage(); y=12; }
+  const media=dbMedia(o);
+  doc.setFillColor(255,255,255); doc.rect(ML, y, TW, 9,'FD');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(30,58,95);
+  doc.text(`MÉDIA GERAL: ${media.toFixed(2)} / 4,00   —   ${mediaLabel(media)}`, ML+TW/2, y+6, {align:'center'});
+  y += 11;
+
+  // ── 5. Feedback ───────────────────────────────────────
+  if(o.feedback && o.feedback.trim()){
+    if(y+6>280){ doc.addPage(); y=12; }
+    doc.setFillColor(30,58,95); doc.rect(ML, y, TW, 6,'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(255,255,255);
+    doc.text('FEEDBACK', ML+3, y+4.5);
+    y += 6;
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(55,65,81);
+    const fbLines = doc.splitTextToSize(o.feedback, TW-8);
+    const fbH = Math.max(fbLines.length*4+6, 18);
+    if(y+fbH>280){ doc.addPage(); y=12; }
+    doc.setFillColor(255,255,255); doc.rect(ML, y, TW, fbH,'FD');
+    doc.text(fbLines, ML+4, y+5);
+    y += fbH + 6;
+  }
+
+  // ── 6. Rodapé ─────────────────────────────────────────
+  if(y+12>280){ doc.addPage(); y=12; }
+  y += 4;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(30,58,95);
+  doc.text('Coordenador(a) de Formação – Pedagógica', ML+TW/2, y, {align:'center'});
+  y += 5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(100,116,139);
+  doc.text(`Colégio Santa Maria Minas  —  ${o.unidade}`, ML+TW/2, y, {align:'center'});
+  y += 6;
+  const nowStr = new Date().toLocaleString('pt-BR');
+  doc.setFontSize(6); doc.setTextColor(156,163,175);
+  doc.text(`Gerado em ${nowStr} · Sistema de Observação de Aula — Colégio Santa Maria Minas`, ML+TW/2, y, {align:'center'});
+
+  doc.save(`observacao-${o.id}-${o.professor.split(' ')[0]}.pdf`);
+  toast('PDF gerado com sucesso!');
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT — login direto como Coordenador (protótipo)
+// ═══════════════════════════════════════════════════════
+dbSeed();
+state.user = DEMO_USERS[0]; // Marcos Oliveira — Coordenador Pedagógico
+state.view = 'dashboard';
+render();
+</script>
+</body>
+</html>
